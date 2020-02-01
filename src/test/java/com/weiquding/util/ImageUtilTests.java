@@ -4,6 +4,8 @@ import com.weiquding.map.MapApplication;
 import com.weiquding.map.util.ImageUtil;
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * description
  *
@@ -22,5 +24,17 @@ public class ImageUtilTests {
     public void testSplitDDImages() {
         ImageUtil.splitImages(MapApplication.DD_IMAGE_PATH);
     }
+
+    @Test
+    public void testCountImages() {
+        AtomicInteger frCount = new AtomicInteger();
+        ImageUtil.countImages(MapApplication.IMAGE_PATH, frCount);
+        System.out.println("发热门诊截图：" + frCount.get());
+        AtomicInteger ddCount = new AtomicInteger();
+        ImageUtil.countImages(MapApplication.DD_IMAGE_PATH, ddCount);
+        System.out.println("定点医院截图：" + ddCount.get());
+        System.out.println("总截图：" + (frCount.get() + ddCount.get()));
+    }
+
 
 }

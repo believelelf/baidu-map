@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 切割发热门诊图片为多张
@@ -85,6 +86,23 @@ public class ImageUtil {
             // 增加配置，只切分原图
             if (!file.getName().contains(SPLIT_IMAGE_NAME)) {
                 splitImage(file.getPath());
+            }
+        }
+    }
+
+    public static void countImages(String dir, AtomicInteger count) {
+        File file = new File(dir);
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File subFile : files) {
+                    countImages(subFile.getPath(), count);
+                }
+            }
+        } else {
+            // 增加配置，只切分原图
+            if (!file.getName().contains(SPLIT_IMAGE_NAME)) {
+                count.getAndIncrement();
             }
         }
     }

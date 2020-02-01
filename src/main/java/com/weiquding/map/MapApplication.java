@@ -7,9 +7,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.weiquding.map.domain.Hospital;
-import com.weiquding.map.util.AipOcrService;
-import com.weiquding.map.util.ImageUtil;
-import com.weiquding.map.util.MapSearchService;
+import com.weiquding.map.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,19 +43,23 @@ public class MapApplication {
 
     public static final String RESOURCE_AIP_OCR = "AipOcr";
 
-    public static final String RESOURCE_MAP_SEARCH = "MapSearch";
+    public static final String RESOURCE_MAP_SEARCH = "BaiDuMapSearch";
+
+    public static final String RESOURCE_MAP_GEO_CONV = "BaiDuMapGeoConv";
+
+    public static final String RESOURCE_AMAP_SEARCH = "AMapSearch";
 
     public static void main(String[] args) throws IOException {
-        //completeRun();
-        resumeRun();
+        //completeBaiDuMapRun();
+        resumeAMapRun3();
     }
 
     /**
-     * 完整运行
+     * 完整运行百度地图搜索
      *
      * @throws IOException
      */
-    private static void completeRun() throws IOException {
+    private static void completeBaiDuMapRun() throws IOException {
         // 加载规则
         initFlowRules();
 
@@ -96,11 +98,67 @@ public class MapApplication {
     }
 
     /**
+     * 完整运行高德API，包括高德地图API
+     *
+     * @throws IOException
+     */
+    public static void completeAMapRun() throws IOException {
+        // 加载规则
+        initFlowRules();
+
+        // 切分图片
+        ImageUtil.splitImages(IMAGE_PATH);
+        ImageUtil.splitImages(DD_IMAGE_PATH);
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmm");
+        String date = simpleDateFormat.format(new Date());
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        Map<String, Set<String>> cityRefHospital = new LinkedHashMap<>();
+        AipOcrService.basicGeneralByPath(IMAGE_PATH, cityRefHospital);
+        LOGGER.info("发热门诊图片-文字识别返回数据为:{}", cityRefHospital);
+        objectMapper.writeValue(new File(FR_NAME_JSON_PATH + File.separator + "fr_name_" + date + ".json"), cityRefHospital);
+
+        Set<Hospital> hospitals = AMapSearchService.searchPOI("发热门诊", cityRefHospital);
+        LOGGER.info("发热门诊图片-POI检索后总数:{}", hospitals.size());
+        // 写一份数据(高德坐标系)
+        objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_amap_poi_" + date + ".json"), hospitals);
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(hospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_poi_" + date + ".json"), hospitals);
+
+        cityRefHospital = new LinkedHashMap<>();
+        AipOcrService.basicGeneralByPath(DD_IMAGE_PATH, cityRefHospital);
+        LOGGER.info("定点医院图片-文字识别返回数据为:{}", cityRefHospital);
+        objectMapper.writeValue(new File(DD_NAME_JSON_PATH + File.separator + "dd_name_" + date + ".json"), cityRefHospital);
+
+
+        Set<Hospital> ddHospitals = AMapSearchService.searchPOI("定点医院", cityRefHospital);
+        LOGGER.info("定点医院图片-POI检索后总数:{}", ddHospitals.size());
+        // 写一份数据(高德坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_amap_poi_" + date + ".json"), ddHospitals);
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(ddHospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_poi_" + date + ".json"), ddHospitals);
+
+        List<Hospital> finalList = new ArrayList<>(hospitals.size() + ddHospitals.size());
+        finalList.addAll(hospitals);
+        finalList.addAll(ddHospitals);
+        objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
+    }
+
+    /**
      * 特定情况下中断恢复运行
      *
      * @throws IOException
      */
-    public static void resumeRun() throws IOException {
+    public static void resumeBaiDuMapRun() throws IOException {
         // 加载规则
         initFlowRules();
 
@@ -123,7 +181,7 @@ public class MapApplication {
         // 重新写一份数据
         objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_poi_" + date + ".json"), hospitals);
 
-        Map<String, Set<String>> cityRefHospital = objectMapper.readValue(new File(DD_NAME_JSON_PATH + File.separator + "dd_name_202001311929.json"), new TypeReference<LinkedHashMap<String,Set<String>>>() {
+        Map<String, Set<String>> cityRefHospital = objectMapper.readValue(new File(DD_NAME_JSON_PATH + File.separator + "dd_name_202001311929.json"), new TypeReference<LinkedHashMap<String, Set<String>>>() {
         });
         LOGGER.info("定点医院图片-重新加载后数据为:{}", cityRefHospital);
 
@@ -135,6 +193,168 @@ public class MapApplication {
         finalList.addAll(hospitals);
         finalList.addAll(ddHospitals);
         objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
+    }
+
+
+    /**
+     * 特定情况下中断恢复运行
+     *
+     * @throws IOException
+     */
+    public static void resumeBaiDuMapRun2() throws IOException {
+        // 加载规则
+        initFlowRules();
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmm");
+        String date = simpleDateFormat.format(new Date());
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        Map<String, Set<String>> cityRefHospital = objectMapper.readValue(new File(FR_NAME_JSON_PATH + File.separator + "fr_name_202001311929.json"), new TypeReference<LinkedHashMap<String, Set<String>>>() {
+        });
+        Set<Hospital> hospitals = MapSearchService.searchPOI("发热门诊", cityRefHospital);
+
+        LOGGER.info("发热门诊图片-重新加载后总数:{}", hospitals.size());
+        // 重新写一份数据
+        objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_poi_" + date + ".json"), hospitals);
+
+        cityRefHospital = objectMapper.readValue(new File(DD_NAME_JSON_PATH + File.separator + "dd_name_202001311929.json"), new TypeReference<LinkedHashMap<String, Set<String>>>() {
+        });
+        LOGGER.info("定点医院图片-重新加载后数据为:{}", cityRefHospital);
+
+        Set<Hospital> ddHospitals = MapSearchService.searchPOI("定点医院", cityRefHospital);
+        LOGGER.info("定点医院图片-POI检索后总数:{}", ddHospitals.size());
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_poi_" + date + ".json"), ddHospitals);
+
+        List<Hospital> finalList = new ArrayList<>(hospitals.size() + ddHospitals.size());
+        finalList.addAll(hospitals);
+        finalList.addAll(ddHospitals);
+        objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
+    }
+
+    /**
+     * 特定情况下中断恢复运行，包括高德地图API
+     *
+     * @throws IOException
+     */
+    public static void resumeAMapRun() throws IOException {
+        // 加载规则
+        initFlowRules();
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmm");
+        String date = simpleDateFormat.format(new Date());
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        Map<String, Set<String>> cityRefHospital = objectMapper.readValue(new File(FR_NAME_JSON_PATH + File.separator + "fr_name_202001311929.json"), new TypeReference<LinkedHashMap<String, Set<String>>>() {
+        });
+        Set<Hospital> hospitals = AMapSearchService.searchPOI("发热门诊", cityRefHospital);
+        LOGGER.info("发热门诊图片-重新加载后总数:{}", hospitals.size());
+        // 写一份数据(高德坐标系)
+        objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_amap_poi_" + date + ".json"), hospitals);
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(hospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_poi_" + date + ".json"), hospitals);
+
+
+        cityRefHospital = objectMapper.readValue(new File(DD_NAME_JSON_PATH + File.separator + "dd_name_202001311929.json"), new TypeReference<LinkedHashMap<String, Set<String>>>() {
+        });
+        LOGGER.info("定点医院图片-重新加载后数据为:{}", cityRefHospital);
+
+        Set<Hospital> ddHospitals = AMapSearchService.searchPOI("定点医院", cityRefHospital);
+        LOGGER.info("定点医院图片-POI检索后总数:{}", ddHospitals.size());
+        // 写一份数据(高德坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_amap_poi_" + date + ".json"), ddHospitals);
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(ddHospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_poi_" + date + ".json"), ddHospitals);
+
+        List<Hospital> finalList = new ArrayList<>(hospitals.size() + ddHospitals.size());
+        finalList.addAll(hospitals);
+        finalList.addAll(ddHospitals);
+        objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
+    }
+    /**
+     * 特定情况下中断恢复运行，包括高德地图API
+     *
+     * @throws IOException
+     */
+    public static void resumeAMapRun2() throws IOException {
+        // 加载规则
+        initFlowRules();
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmm");
+        String date = simpleDateFormat.format(new Date());
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        Set<Hospital> hospitals = objectMapper.readValue(new File(FR_POI_JSON_PATH + File.separator + "fr_amap_poi_202002011444.json"), new TypeReference<LinkedHashSet<Hospital>>() {
+        });
+        LOGGER.info("发热门诊图片-重新加载后总数:{}", hospitals.size());
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(hospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(FR_POI_JSON_PATH + File.separator + "fr_poi_" + date + ".json"), hospitals);
+
+
+        Map<String, Set<String>> cityRefHospital = objectMapper.readValue(new File(DD_NAME_JSON_PATH + File.separator + "dd_name_202001311929.json"), new TypeReference<LinkedHashMap<String, Set<String>>>() {
+        });
+        LOGGER.info("定点医院图片-重新加载后数据为:{}", cityRefHospital);
+
+        Set<Hospital> ddHospitals = AMapSearchService.searchPOI("定点医院", cityRefHospital);
+        LOGGER.info("定点医院图片-POI检索后总数:{}", ddHospitals.size());
+        // 写一份数据(高德坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_amap_poi_" + date + ".json"), ddHospitals);
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(ddHospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_poi_" + date + ".json"), ddHospitals);
+
+        List<Hospital> finalList = new ArrayList<>(hospitals.size() + ddHospitals.size());
+        finalList.addAll(hospitals);
+        finalList.addAll(ddHospitals);
+        objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
+    }
+
+ /**
+     * 特定情况下中断恢复运行，包括高德地图API
+     *
+     * @throws IOException
+     */
+    public static void resumeAMapRun3() throws IOException {
+        // 加载规则
+        initFlowRules();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        Set<Hospital> hospitals = objectMapper.readValue(new File(FR_POI_JSON_PATH + File.separator + "fr_poi_202002011540.json"), new TypeReference<LinkedHashSet<Hospital>>() {
+        });
+        LOGGER.info("发热门诊图片-重新加载后总数:{}", hospitals.size());
+
+
+        Set<Hospital> ddHospitals= objectMapper.readValue(new File(DD_POI_JSON_PATH + File.separator + "dd_amap_poi_202002011540.json"), new TypeReference<LinkedHashSet<Hospital>>() {
+        });
+        LOGGER.info("定点医院图片-重新加载后总数:{}", ddHospitals.size());
+
+        // 转为百度坐标系
+        BaiduMapGeoConvService.geoConvert(ddHospitals);
+        // 写一份数据(百度坐标系)
+        objectMapper.writeValue(new File(DD_POI_JSON_PATH + File.separator + "dd_poi_202002011540.json"), ddHospitals);
+
+        Set<Hospital> finalList = new LinkedHashSet<>(hospitals.size() + ddHospitals.size());
+        finalList.addAll(hospitals);
+        finalList.addAll(ddHospitals);
+        objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_202002011540.json"), finalList);
     }
 
     /**
@@ -157,9 +377,6 @@ public class MapApplication {
         FlowRule rule = new FlowRule();
         rule.setResource(RESOURCE_AIP_OCR);
         rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
-        /*
-         * Set limit QPS to 2.
-         */
         rule.setCount(2);
         rule.setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER);
         //  Max queueing time in rate limiter behavior. 每一个请求的最长等待时间2h
@@ -172,7 +389,32 @@ public class MapApplication {
         rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
         /*
          * QPS上限：50QPS）
-         * Set limit QPS to 50.
+         */
+        rule.setCount(50);
+        rule.setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER);
+        //  Max queueing time in rate limiter behavior. 每一个请求的最长等待时间2h
+        rule.setMaxQueueingTimeMs(2 * 60 * 60 * 1000);
+        rules.add(rule);
+
+        // 百度地图坐标转换
+        rule = new FlowRule();
+        rule.setResource(RESOURCE_MAP_GEO_CONV);
+        rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
+        /*
+         * QPS上限：200QPS）
+         */
+        rule.setCount(200);
+        rule.setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER);
+        //  Max queueing time in rate limiter behavior. 每一个请求的最长等待时间2h
+        rule.setMaxQueueingTimeMs(2 * 60 * 60 * 1000);
+        rules.add(rule);
+
+        // 高德地图关键字搜索
+        rule = new FlowRule();
+        rule.setResource(RESOURCE_AMAP_SEARCH);
+        rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
+        /*
+         * 并发量上限（次/秒）: 50
          */
         rule.setCount(50);
         rule.setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER);

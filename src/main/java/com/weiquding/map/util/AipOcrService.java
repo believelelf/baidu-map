@@ -238,6 +238,10 @@ public class AipOcrService {
                 str = str.replaceFirst("\\?+2*$", "");
                 LOGGER.warn("特殊地址处理==>城市:[{}],Str:[{}],Replace:[{}]", new Object[]{city, temp, str});
             }
+            if (str.contains("○")) {
+                //海军第九○五医院-->海军第九〇五医院
+                str = str.replace("○", "〇");
+            }
             retList.add(str);
         }
         return retList;

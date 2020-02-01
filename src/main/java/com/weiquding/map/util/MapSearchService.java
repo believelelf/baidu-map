@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 行政区划区域检索
+ * 百度行政区划区域检索
  * http://lbsyun.baidu.com/index.php?title=webapi/guide/webservice-placeapi
  *
  * @author beliveyourself
@@ -111,7 +111,6 @@ public class MapSearchService {
         return retHospitals;
     }
     /*
-     * http://api.map.baidu.com/place/v2/search?query=%E5%8D%97%E9%98%B3%E5%BC%A0%E4%BB%B2%E6%99%AF%E5%8C%BB%E9%99%A2&tag=%E5%8C%BB%E7%96%97&region=%E5%8D%97%E9%98%B3%E5%B8%82&output=json&ak=5O40gZqqBmW2NlESudi4H9tByooNX2E0
      * {
      *     "status":0,
      *     "message":"ok",
