@@ -41,6 +41,8 @@ public class MapApplication {
 
     public static final String FINAL_JSON_PATH = "E:\\Java\\idea_workspaces\\baidu-map\\json\\最终输出JSON";
 
+    public static final String QQ_JSON_PATH = "E:\\Java\\idea_workspaces\\baidu-map\\json\\QQ_JSON";
+
     public static final String RESOURCE_AIP_OCR = "AipOcr";
 
     public static final String RESOURCE_MAP_SEARCH = "BaiDuMapSearch";
@@ -51,7 +53,33 @@ public class MapApplication {
 
     public static void main(String[] args) throws IOException {
         //completeBaiDuMapRun();
-        resumeAMapRun3();
+        //resumeAMapRun3();
+        completeQQCommunityRun();
+    }
+
+    private static void completeQQCommunityRun() throws IOException {
+        // 加载规则
+        initFlowRules();
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmm");
+        String date = simpleDateFormat.format(new Date());
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        Map<String, Object> positions = CommunityAndPositionService.getPosition();
+        LOGGER.info("地址查询返回数据为:{}", positions);
+        objectMapper.writeValue(new File(QQ_JSON_PATH + File.separator + "position_" + date + ".json"), positions);
+
+        Map<String, Object> allCommunity = CommunityAndPositionService.getAllCommunity(positions);
+        LOGGER.info("全部小区查询返回数据为:{}", allCommunity);
+        objectMapper.writeValue(new File(QQ_JSON_PATH + File.separator + "community_" + date + ".json"), allCommunity);
+
+        Map<String, Object> geoConvCommunity = CommunityAndPositionService.convertLngAndLat(allCommunity);
+        LOGGER.info("转换坐标系后全部小区数据为:{}", geoConvCommunity);
+        objectMapper.writeValue(new File(QQ_JSON_PATH + File.separator + "geoConvCommunity_" + date + ".json"), geoConvCommunity);
+
+
     }
 
     /**
@@ -280,6 +308,7 @@ public class MapApplication {
         finalList.addAll(ddHospitals);
         objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
     }
+
     /**
      * 特定情况下中断恢复运行，包括高德地图API
      *
@@ -325,7 +354,7 @@ public class MapApplication {
         objectMapper.writeValue(new File(FINAL_JSON_PATH + File.separator + "data_" + date + ".json"), finalList);
     }
 
- /**
+    /**
      * 特定情况下中断恢复运行，包括高德地图API
      *
      * @throws IOException
@@ -342,7 +371,7 @@ public class MapApplication {
         LOGGER.info("发热门诊图片-重新加载后总数:{}", hospitals.size());
 
 
-        Set<Hospital> ddHospitals= objectMapper.readValue(new File(DD_POI_JSON_PATH + File.separator + "dd_amap_poi_202002011540.json"), new TypeReference<LinkedHashSet<Hospital>>() {
+        Set<Hospital> ddHospitals = objectMapper.readValue(new File(DD_POI_JSON_PATH + File.separator + "dd_amap_poi_202002011540.json"), new TypeReference<LinkedHashSet<Hospital>>() {
         });
         LOGGER.info("定点医院图片-重新加载后总数:{}", ddHospitals.size());
 

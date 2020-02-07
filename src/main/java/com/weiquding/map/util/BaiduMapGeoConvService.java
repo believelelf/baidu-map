@@ -98,6 +98,27 @@ public class BaiduMapGeoConvService {
         }
     }
 
+    public static String[] geoConv(String lng, String lat) {
+        String coords = lng + "," + lat;
+        // 资源名可使用任意有业务语义的字符串，比如方法名、接口名或其它可唯一标识的字符串。
+        try (Entry spEntry = SphU.entry(MapApplication.RESOURCE_MAP_GEO_CONV)) {
+            List<Map<String, Object>> points = geoConv(coords);
+            if (points == null) {
+                LOGGER.warn("重新请求坐标转换API:[{}]", coords);
+                points = geoConv(coords);
+                if (points == null) {
+                    LOGGER.warn("重新请求坐标转换API没有返回值:[{}]", coords);
+                    return new String[]{lng, lat};
+                }
+            }
+            Map<String, Object> point = points.get(0);
+            return new String[]{point.get("x").toString(), point.get("y").toString()};
+        } catch (BlockException ex) {
+            LOGGER.warn("调用百度地图坐标系转换限流异常:[{}][{}]", coords, ex.getMessage());
+            return new String[]{lng, lat};
+        }
+    }
+
     @SuppressWarnings("all")
     private static List<Map<String, Object>> geoConv(String coords) {
         Map<String, Object> result = REST_TEMPLATE.getForObject(URL, Map.class, coords);

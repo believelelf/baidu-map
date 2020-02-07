@@ -12,10 +12,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 百度行政区划区域检索
@@ -56,44 +53,11 @@ public class MapSearchService {
             String city = entry.getKey();
             Set<String> hospitals = entry.getValue();
             for (String hospital : hospitals) {
-                Map<String, Object> result = null;
-                // 资源名可使用任意有业务语义的字符串，比如方法名、接口名或其它可唯一标识的字符串。
-                try (Entry spEntry = SphU.entry(MapApplication.RESOURCE_MAP_SEARCH)) {
-                    result = REST_TEMPLATE.getForObject(URL, Map.class, hospital, city);
-                } catch (BlockException ex) {
-                    LOGGER.warn("POI检索限流异常:[{}][{}][{}]", hospital, city, ex.getMessage());
-                }
-                if (result == null) {
-                    LOGGER.warn("POI检索失败:[{}][{}][{}]", hospital, city, result);
-                    continue;
-                }
-                //本次API访问状态，如果成功返回0，如果失败返回其他数字。（见服务状态码）
-                int status = (Integer) result.get("status");
-                if (status != 0) {
-                    LOGGER.warn("POI检索失败:[{}][{}][{}]", hospital, city, result.get("message"));
-                    continue;
-                }
-                Map<String, Object> firstPoi = null;
-                List<Map<String, Object>> results = (List<Map<String, Object>>) result.get("results");
-                if (results != null && !results.isEmpty()) {
-                    firstPoi = results.get(0);
-                    for (int i = 0, size = results.size(); i < size; i++) {
-                        Map<String, Object> poi = results.get(i);
-                        String name = (String) poi.get("name");
-                        if (hospital.equals(name)) {
-                            firstPoi = poi;
-                            break;
-                        }
-                    }
-                }
-                if (firstPoi == null) {
-                    LOGGER.warn("POI检索没有结果:[{}][{}][{}]", hospital, city, result);
-                    continue;
-                }
+                Map<String, Object> firstPoi = getLocation(hospital, city);
                 Hospital retHospital = new Hospital();
                 Map<String, Object> location = (Map<String, Object>) firstPoi.get("location");
                 if (location == null) {
-                    LOGGER.warn("POI检索没有经纬度信息:[{}][{}][{}]", hospital, city, result);
+                    LOGGER.warn("POI检索没有经纬度信息:[{}][{}]", hospital, city);
                     continue;
                 }
                 retHospital.setBd_lat(BigDecimal.valueOf((Double) location.getOrDefault("lat", 0.0)));
@@ -109,6 +73,44 @@ public class MapSearchService {
             }
         }
         return retHospitals;
+    }
+
+    public static Map<String, Object> getLocation(String hospital, String city) {
+        Map<String, Object> result = null;
+        // 资源名可使用任意有业务语义的字符串，比如方法名、接口名或其它可唯一标识的字符串。
+        try (Entry spEntry = SphU.entry(MapApplication.RESOURCE_MAP_SEARCH)) {
+            result = REST_TEMPLATE.getForObject(URL, Map.class, hospital, city);
+        } catch (BlockException ex) {
+            LOGGER.warn("POI检索限流异常:[{}][{}][{}]", hospital, city, ex.getMessage());
+        }
+        if (result == null) {
+            LOGGER.warn("POI检索失败:[{}][{}][{}]", hospital, city, result);
+            return new HashMap<>();
+        }
+        //本次API访问状态，如果成功返回0，如果失败返回其他数字。（见服务状态码）
+        int status = (Integer) result.get("status");
+        if (status != 0) {
+            LOGGER.warn("POI检索失败:[{}][{}][{}]", hospital, city, result.get("message"));
+            return new HashMap<>();
+        }
+        Map<String, Object> firstPoi = null;
+        List<Map<String, Object>> results = (List<Map<String, Object>>) result.get("results");
+        if (results != null && !results.isEmpty()) {
+            firstPoi = results.get(0);
+            for (int i = 0, size = results.size(); i < size; i++) {
+                Map<String, Object> poi = results.get(i);
+                String name = (String) poi.get("name");
+                if (hospital.equals(name)) {
+                    firstPoi = poi;
+                    break;
+                }
+            }
+        }
+        if (firstPoi == null) {
+            LOGGER.warn("POI检索没有结果:[{}][{}][{}]", hospital, city, result);
+            return new HashMap<>();
+        }
+        return firstPoi;
     }
     /*
      * {
