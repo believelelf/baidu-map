@@ -81,14 +81,14 @@ public class CommunityAndPositionService {
                         String lat = (String) community.get("lat");
                         String full_address = (String) community.get("full_address");
                         String city = (String) community.get("city");
-                        if (StringUtils.hasText(lng) && StringUtils.hasText(lat)) {
-                            String[] geoConvs = BaiduMapGeoConvService.geoConv(lng, lat);
-                            community.put("lng", geoConvs[0]);
-                            community.put("lat", geoConvs[1]);
-                        } else if ("上海市浦东新区汤臣豪园四期".equals(full_address)) {
+                        if ("上海市浦东新区汤臣豪园四期".equals(full_address)) {
                             // 修改坐标
                             community.put("lng", "121.598908");
                             community.put("lat", "31.20417");
+                        } else if (StringUtils.hasText(lng) && StringUtils.hasText(lat)) {
+                            String[] geoConvs = BaiduMapGeoConvService.geoConv(lng, lat);
+                            community.put("lng", geoConvs[0]);
+                            community.put("lat", geoConvs[1]);
                         } else {
                             LOGGER.warn("[{}][{}]没有经纬度信息，开始进行百度地址检索", city, full_address);
                             // 通过百度api查询坐标信息
