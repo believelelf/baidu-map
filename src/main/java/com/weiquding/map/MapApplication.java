@@ -53,8 +53,8 @@ public class MapApplication {
 
     public static void main(String[] args) throws IOException {
         //completeBaiDuMapRun();
-        //resumeAMapRun3();
-        completeQQCommunityRun();
+        resumeAMapRun();
+        //completeQQCommunityRun();
     }
 
     private static void completeQQCommunityRun() throws IOException {

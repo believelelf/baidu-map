@@ -67,7 +67,6 @@ public class MapSearchService {
                 retHospital.setAddress((String) firstPoi.getOrDefault("address", ""));
                 retHospital.setProvince((String) firstPoi.getOrDefault("province", ""));
                 city = ((String) firstPoi.getOrDefault("city", city));
-                city = city.replace("特别行政区", "").replace("市", "").replace("县", "");
                 retHospital.setCity(city);
                 retHospitals.add(retHospital);
             }

@@ -176,7 +176,6 @@ public class AMapSearchService {
         retHospital.setAddress(getValueFromPoi(firstPoi, "address", getValueFromPoi(firstPoi, "adname", "")));
         retHospital.setProvince(getValueFromPoi(firstPoi, "pname", ""));
         city = getValueFromPoi(firstPoi, "cityname", city);
-        city = city.replace("特别行政区", "").replace("市", "").replace("县", "");
         retHospital.setCity(city);
         return retHospital;
     }
